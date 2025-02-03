@@ -56,9 +56,9 @@ func (a *App) OpenFileBrowser(readerIndex int) SelectedDirectory {
 	return SelectedDirectory{DirPath: dir, Files: files, ReaderIndex: readerIndex}
 }
 
-func (a *App) ReadTacviewTimes(readerIndex int, files []string) []reader.Aircraft {
-	aircraft, _ := reader.ReadTimes(a.readers[readerIndex], files)
-	return aircraft
+func (a *App) ReadTacviewTimes(readerIndex int, files []string) reader.TimesResult {
+	result, _ := reader.ReadTimes(a.readers[readerIndex], files)
+	return result
 }
 
 func (a *App) GetProgress() reader.Progress {

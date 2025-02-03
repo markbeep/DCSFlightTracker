@@ -9,4 +9,4 @@ export function Greet(arg1:string):Promise<string>;
 
 export function OpenFileBrowser(arg1:number):Promise<main.SelectedDirectory>;
 
-export function ReadTacviewTimes(arg1:number,arg2:Array<string>):Promise<Array<reader.Aircraft>>;
+export function ReadTacviewTimes(arg1:number,arg2:Array<string>):Promise<reader.TimesResult>;

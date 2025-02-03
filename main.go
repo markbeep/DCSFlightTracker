@@ -18,28 +18,19 @@ var assets embed.FS
 func main() {
 	tacviewReader := reader.NewTacviewReader()
 
-	// reader.ReadTimes("data", &tacviewReader)
-	// flightTimes, err := reader.ReadTimes("data", &tacviewReader)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// for _, plane := range flightTimes {
-	// 	fmt.Println(plane)
-	// }
-
-	// // Create an instance of the app structure
 	app := NewApp([]reader.Reader{&tacviewReader})
 
-	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "DCSFlightTracker",
-		Width:  1024,
-		Height: 768,
+		Title:     "DCSFlightTracker",
+		Frameless: true,
+		MinWidth:  400,
+		MinHeight: 420,
+		Width:     400,
+		Height:    600,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+		BackgroundColour: &options.RGBA{R: 0x4a, G: 0x59, B: 0x42, A: 1},
 		OnStartup:        app.startup,
 		Bind: []interface{}{
 			app,

@@ -30,14 +30,21 @@ func (a Aircraft) String() string {
 	return fmt.Sprintf("%s: %.2f hours", a.Name, hours)
 }
 
+type TimesResult struct {
+	Aircrafts []Aircraft
+	Fails     []string
+}
+
 var successful = 0
 var failed = 0
 var total = 0
 
-func ReadTimes(reader Reader, files []string) ([]Aircraft, error) {
+func ReadTimes(reader Reader, files []string) (TimesResult, error) {
 	successful = 0
 	failed = 0
 	total = 0
+
+	var fails []string
 
 	done := make(chan bool)
 
@@ -46,6 +53,7 @@ func ReadTimes(reader Reader, files []string) ([]Aircraft, error) {
 			err := reader.ReadFile(fp)
 			if err != nil {
 				fmt.Println(err.Error())
+				fails = append(fails, err.Error())
 				done <- false
 			} else {
 				done <- true
@@ -70,7 +78,7 @@ func ReadTimes(reader Reader, files []string) ([]Aircraft, error) {
 	}
 
 	slices.SortFunc(aircrafts, func(a, b Aircraft) int { return int(b.Seconds) - int(a.Seconds) })
-	return aircrafts, nil
+	return TimesResult{Aircrafts: aircrafts, Fails: fails}, nil
 }
 
 type Progress struct {
