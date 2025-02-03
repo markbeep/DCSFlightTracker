@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "DCSFlightTracker",
+  "outputfilename": "DCSFlightTracker",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Mark Csurgay",
+    "email": "mcsurgay@student.ethz.ch"
+  }
+}
