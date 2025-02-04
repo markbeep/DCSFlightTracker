@@ -24,6 +24,10 @@ func NewTacviewReader() TacviewReader {
 	}
 }
 
+func (r *TacviewReader) ID() string {
+	return "Tacview"
+}
+
 func findAuthor(scanner *bufio.Scanner) (string, error) {
 	for scanner.Scan() {
 		line := scanner.Text()

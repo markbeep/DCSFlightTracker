@@ -34,19 +34,15 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
-// Greet returns a greeting for the given name
-func (a *App) Greet(name string) string {
-	return fmt.Sprintf("Hello %s, It's show time!", name)
-}
-
-type SelectedDirectory struct {
-	DirPath     string
-	Files       []string
+type SelectedFiles struct {
+	// Full path of every selected file
+	Files []string
+	// Index of the reader type to use. In most cases we expect 0=Tacview.
 	ReaderIndex int
 	Error       string
 }
 
-func (a *App) OpenFileBrowser(readerIndex int) SelectedDirectory {
+func (a *App) OpenDirectoryBrowser(readerIndex int) SelectedFiles {
 	homeDir, _ := os.UserHomeDir()
 	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{Title: "Select your Tacview directory", DefaultDirectory: filepath.Join(homeDir, "Documents", "Tacview")})
 	if err != nil {
@@ -57,17 +53,31 @@ func (a *App) OpenFileBrowser(readerIndex int) SelectedDirectory {
 	files, err := reader.ValidFiles(dir)
 	if err != nil {
 		a.logger.Error(fmt.Sprint("Failed to open directory: ", err.Error()))
-		return SelectedDirectory{Error: "Failed to open directory"}
+		return SelectedFiles{Error: "Failed to open directory"}
 	}
 
-	return SelectedDirectory{DirPath: dir, Files: files, ReaderIndex: readerIndex}
+	for i, file := range files {
+		files[i] = filepath.Join(dir, file)
+	}
+
+	return SelectedFiles{Files: files, ReaderIndex: readerIndex}
 }
 
-func (a *App) ReadTacviewTimes(readerIndex int, files []string) reader.TimesResult {
+var readerStats = make(map[int]reader.TimesResult)
+
+func (a *App) StartAnalysing(readerIndex int, files []string) {
 	result, _ := reader.ReadTimes(a.readers[readerIndex], files)
+	readerStats[readerIndex] = result
+}
+
+func (a *App) ReadAnalysis(readerIndex int) reader.TimesResult {
+	result, exists := readerStats[readerIndex]
+	if !exists {
+		return reader.TimesResult{}
+	}
 	return result
 }
 
-func (a *App) GetProgress() reader.Progress {
-	return reader.GetProgress()
+func (a *App) GetProgress(readerIndex int) reader.Progress {
+	return reader.GetProgress(a.readers[readerIndex])
 }

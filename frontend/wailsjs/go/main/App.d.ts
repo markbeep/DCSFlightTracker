@@ -3,10 +3,10 @@
 import {reader} from '../models';
 import {main} from '../models';
 
-export function GetProgress():Promise<reader.Progress>;
+export function GetProgress(arg1:number):Promise<reader.Progress>;
 
-export function Greet(arg1:string):Promise<string>;
+export function OpenDirectoryBrowser(arg1:number):Promise<main.SelectedFiles>;
 
-export function OpenFileBrowser(arg1:number):Promise<main.SelectedDirectory>;
+export function ReadAnalysis(arg1:number):Promise<reader.TimesResult>;
 
-export function ReadTacviewTimes(arg1:number,arg2:Array<string>):Promise<reader.TimesResult>;
+export function StartAnalysing(arg1:number,arg2:Array<string>):Promise<void>;

@@ -6,6 +6,7 @@ import (
 )
 
 type Reader interface {
+	ID() string
 	ValidFiles(dir string) ([]string, error)
 	// Reads a file and internally stores the time flown with each aircraft.
 	// This method has to be thread-safe.
@@ -34,15 +35,17 @@ type TimesResult struct {
 	Aircrafts []Aircraft
 	Failures  []string
 }
+type Progress struct {
+	Successful int
+	Failed     int
+	Total      int
+}
 
-var successful = 0
-var failed = 0
-var total = 0
+var inProgress = make(map[string]*Progress)
 
 func ReadTimes(reader Reader, files []string) (TimesResult, error) {
-	successful = 0
-	failed = 0
-	total = 0
+	prog := Progress{}
+	inProgress[reader.ID()] = &prog
 
 	var fails []string
 
@@ -61,12 +64,12 @@ func ReadTimes(reader Reader, files []string) (TimesResult, error) {
 		}(filename)
 	}
 
-	total = len(files)
-	for i := 1; i <= total; i++ {
+	prog.Total = len(files)
+	for i := 1; i <= prog.Total; i++ {
 		if !<-done {
-			failed++
+			prog.Failed++
 		} else {
-			successful++
+			prog.Successful++
 		}
 	}
 
@@ -81,12 +84,10 @@ func ReadTimes(reader Reader, files []string) (TimesResult, error) {
 	return TimesResult{Aircrafts: aircrafts, Failures: fails}, nil
 }
 
-type Progress struct {
-	Successful int
-	Failed     int
-	Total      int
-}
-
-func GetProgress() Progress {
-	return Progress{Successful: successful, Failed: failed, Total: total}
+func GetProgress(reader Reader) Progress {
+	prog, exists := inProgress[reader.ID()]
+	if exists {
+		return Progress{Successful: prog.Successful, Failed: prog.Failed, Total: prog.Total}
+	}
+	return Progress{Successful: 0, Failed: 0, Total: 0}
 }

@@ -2,6 +2,8 @@
 
 This tool uses [Tacview](https://www.tacview.net/) files to total up all of your flight hours for each aircraft.
 
+![](/media/stats.png)
+
 ## How to use
 
 Make sure you're tracking your flights with Tacview ([Relevant DCS guide](https://tacview.fandom.com/wiki/User_Guide_%E2%80%93_DCS_World)).

@@ -14,8 +14,8 @@ root.render(
     <HashRouter basename="/">
       <Routes>
         <Route path="/" element={<IndexPage />} />
-        <Route path="analyzing" element={<AnalyzingPage />} />
-        <Route path="stats" element={<StatsPage />} />
+        <Route path="analyzing/:readerIndex" element={<AnalyzingPage />} />
+        <Route path="stats/:readerIndex" element={<StatsPage />} />
       </Routes>
     </HashRouter>
   </React.StrictMode>,

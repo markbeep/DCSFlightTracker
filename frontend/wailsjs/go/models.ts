@@ -1,18 +1,16 @@
 export namespace main {
 	
-	export class SelectedDirectory {
-	    DirPath: string;
+	export class SelectedFiles {
 	    Files: string[];
 	    ReaderIndex: number;
 	    Error: string;
 	
 	    static createFrom(source: any = {}) {
-	        return new SelectedDirectory(source);
+	        return new SelectedFiles(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.DirPath = source["DirPath"];
 	        this.Files = source["Files"];
 	        this.ReaderIndex = source["ReaderIndex"];
 	        this.Error = source["Error"];
