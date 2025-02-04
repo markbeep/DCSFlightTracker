@@ -1,19 +1,11 @@
-# README
+# DCSFlightTracker
 
-## About
+This tool uses [Tacview](https://www.tacview.net/) files to total up all of your flight hours for each aircraft.
 
-This is the official Wails React-TS template.
+## How to use
 
-You can configure the project by editing `wails.json`. More information about the project settings can be found
-here: https://wails.io/docs/reference/project-config
+Make sure you're tracking your flights with Tacview ([Relevant DCS guide](https://tacview.fandom.com/wiki/User_Guide_%E2%80%93_DCS_World)).
 
-## Live Development
+Once you have a few flights tracked, you can simply open the DCSFlightTracker, open your Tacview directory (usually located at `%USERPROFILE%/Documents/Tacview`) and click on `Analyze`.
 
-To run in live development mode, run `wails dev` in the project directory. This will run a Vite development
-server that will provide very fast hot reload of your frontend changes. If you want to develop in a browser
-and have access to your Go methods, there is also a dev server that runs on http://localhost:34115. Connect
-to this in your browser, and you can call your Go code from devtools.
-
-## Building
-
-To build a redistributable, production mode package, use `wails build`.
+It will take a few seconds to go through all files and parse every flight you tracked.

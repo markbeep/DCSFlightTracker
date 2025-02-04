@@ -4,6 +4,8 @@ import (
 	"DCSFlightTracker/internal/reader"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/wailsapp/wails/v2/pkg/logger"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -45,7 +47,12 @@ type SelectedDirectory struct {
 }
 
 func (a *App) OpenFileBrowser(readerIndex int) SelectedDirectory {
-	dir, _ := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{Title: "Select your Tacview directory"})
+	homeDir, _ := os.UserHomeDir()
+	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{Title: "Select your Tacview directory", DefaultDirectory: filepath.Join(homeDir, "Documents", "Tacview")})
+	if err != nil {
+		dir, _ = runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{Title: "Select your Tacview directory"})
+	}
+
 	reader := a.readers[readerIndex]
 	files, err := reader.ValidFiles(dir)
 	if err != nil {

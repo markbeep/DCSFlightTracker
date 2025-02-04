@@ -107,7 +107,7 @@ function App() {
           className="absolute right-2 top-2 flex justify-end gap-1"
         >
           <button
-            className="cs-btn size-4.5 flex items-center justify-center"
+            className="cs-btn size-4.5 flex items-center justify-center cursor-pointer"
             onClick={() => WindowMinimise()}
           >
             <MinusIcon className="size-3 absolute" />
@@ -188,7 +188,7 @@ function App() {
                     <div className="icon"></div>
                     <p className="text">File failures</p>
                   </div>
-                  <button className="cs-btn close"></button>
+                  <button className="cs-btn close cursor-pointer"></button>
                 </div>
                 <div className="content text-base whitespace-nowrap overflow-x-auto max-w-[20rem]">
                   {failures.map(x => (
@@ -196,7 +196,7 @@ function App() {
                   ))}
                 </div>
                 <menu className="footer-btns">
-                  <button className="cs-btn">OK</button>
+                  <button className="cs-btn cursor-pointer">OK</button>
                 </menu>
               </form>
             </dialog>
