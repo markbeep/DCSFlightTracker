@@ -3,10 +3,10 @@ import {
   OpenFileBrowser,
   ReadTacviewTimes,
   GetProgress,
-} from "../wailsjs/go/main/App";
-import { reader } from "../wailsjs/go/models";
-import { Quit, WindowMinimise } from "../wailsjs/runtime";
-import "./cs16.css";
+} from "../../wailsjs/go/main/App";
+import { reader } from "../../wailsjs/go/models";
+import { Quit, WindowMinimise } from "../../wailsjs/runtime/runtime";
+import "../cs16.css";
 import { twMerge } from "tailwind-merge";
 import { ChevronDownIcon, MinusIcon } from "@heroicons/react/24/solid";
 import { PaperAirplaneIcon } from "@heroicons/react/24/outline";
@@ -27,7 +27,7 @@ function secondsDisplay(seconds: number): string {
   return `${hours.toFixed(2)} hours`;
 }
 
-function App() {
+export default function IndexPage() {
   const refDraggable = useRef<HTMLDivElement>(null);
   const refNonDraggable = useRef<HTMLDivElement>(null);
   // What reader to use
@@ -224,5 +224,3 @@ function App() {
     </div>
   );
 }
-
-export default App;

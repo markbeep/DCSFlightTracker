@@ -8,7 +8,7 @@ import (
 type Reader interface {
 	ValidFiles(dir string) ([]string, error)
 	// Reads a file and internally stores the time flown with each aircraft.
-	// This method should be thread-safe.
+	// This method has to be thread-safe.
 	ReadFile(filepath string) error
 	GetPlaneSeconds() map[string]float64
 }

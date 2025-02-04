@@ -107,7 +107,7 @@ func (r *TacviewReader) ReadFile(filepath string) error {
 
 	zipReader, err := zip.OpenReader(filepath)
 	if err != nil {
-		return fmt.Errorf("skip '%s': %w", filepath, err)
+		return fmt.Errorf("failed '%s': %w", filepath, err)
 	}
 	defer zipReader.Close()
 
@@ -116,7 +116,7 @@ func (r *TacviewReader) ReadFile(filepath string) error {
 		rc, err := f.Open()
 		r.readContents(rc)
 		if err != nil {
-			return fmt.Errorf("skip '%s': %w", filepath, err)
+			return fmt.Errorf("failed '%s': %w", filepath, err)
 		}
 		rc.Close()
 	}
