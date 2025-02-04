@@ -32,7 +32,7 @@ func (a Aircraft) String() string {
 
 type TimesResult struct {
 	Aircrafts []Aircraft
-	Fails     []string
+	Failures  []string
 }
 
 var successful = 0
@@ -78,7 +78,7 @@ func ReadTimes(reader Reader, files []string) (TimesResult, error) {
 	}
 
 	slices.SortFunc(aircrafts, func(a, b Aircraft) int { return int(b.Seconds) - int(a.Seconds) })
-	return TimesResult{Aircrafts: aircrafts, Fails: fails}, nil
+	return TimesResult{Aircrafts: aircrafts, Failures: fails}, nil
 }
 
 type Progress struct {

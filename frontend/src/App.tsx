@@ -5,9 +5,11 @@ import {
   GetProgress,
 } from "../wailsjs/go/main/App";
 import { reader } from "../wailsjs/go/models";
-import { Quit } from "../wailsjs/runtime";
+import { Quit, WindowMinimise } from "../wailsjs/runtime";
 import "./cs16.css";
 import { twMerge } from "tailwind-merge";
+import { ChevronDownIcon, MinusIcon } from "@heroicons/react/24/solid";
+import { PaperAirplaneIcon } from "@heroicons/react/24/outline";
 
 enum ReaderTypes {
   Tacview = 0,
@@ -26,7 +28,8 @@ function secondsDisplay(seconds: number): string {
 }
 
 function App() {
-  const ref = useRef<HTMLDivElement>(null);
+  const refDraggable = useRef<HTMLDivElement>(null);
+  const refNonDraggable = useRef<HTMLDivElement>(null);
   // What reader to use
   const [readerIndex, setReaderIndex] = useState(ReaderTypes.Tacview);
   const [files, setFiles] = useState<string[]>([]);
@@ -35,12 +38,22 @@ function App() {
   const [failures, setFailures] = useState<string[]>([]);
   const [progress, setProgress] = useState<reader.Progress | null>();
   const [inProgress, setInProgress] = useState(false);
+  const [showDirectory, setShowDirectory] = useState(false);
 
   useEffect(() => {
-    if (ref.current) {
-      ref.current.setAttribute("style", "--wails-draggable:drag");
+    if (refDraggable.current) {
+      refDraggable.current.setAttribute("style", "--wails-draggable:drag");
     }
-  }, [ref]);
+  }, [refDraggable]);
+
+  useEffect(() => {
+    if (refNonDraggable.current) {
+      refNonDraggable.current.setAttribute(
+        "style",
+        "--wails-draggable:no-drag",
+      );
+    }
+  }, [refNonDraggable]);
 
   const handleFileSelect = async () => {
     const dirInfo = await OpenFileBrowser(readerIndex);
@@ -77,43 +90,63 @@ function App() {
 
     const results = await timesPromise;
     setResults(results.Aircrafts);
-    setFailures(results.Fails);
+    setFailures(results.Failures);
     setInProgress(false);
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden">
-      <div ref={ref} className="mb-1 w-full justify-center flex cursor-default">
-        <p className="select-none">DCSFlightTracker</p>
-        <button
-          className="cursor-pointer cs-btn aspect-square absolute top-0 right-0"
-          onClick={() => Quit()}
+    <div className="h-screen w-screen flex flex-col overflow-hidden pb-2 px-3">
+      <div
+        ref={refDraggable}
+        className="mb-1 w-full justify-start items-center gap-1 flex cursor-default pt-2"
+      >
+        <PaperAirplaneIcon className="size-4 text-white" />
+        <p className="select-none font-bold text-white">DCSFlightTracker</p>
+        <div
+          ref={refNonDraggable}
+          className="absolute right-2 top-2 flex justify-end gap-1"
         >
-          x
-        </button>
+          <button
+            className="cs-btn size-4.5 flex items-center justify-center"
+            onClick={() => WindowMinimise()}
+          >
+            <MinusIcon className="size-3 absolute" />
+          </button>
+          <button
+            className="cursor-pointer cs-btn aspect-square close"
+            onClick={() => Quit()}
+          />
+        </div>
       </div>
 
-      <div className="p-1 flex flex-col grow">
+      <div className="cs-border p-2 flex flex-col grow gap-1">
         <div className="flex gap-1">
           <button className="cursor-pointer cs-btn" onClick={handleFileSelect}>
-            Select directory
+            {directory ? "Change" : "Select"} directory
           </button>
-
           <button
-            className="cursor-pointer cs-btn"
-            onClick={() => onAnalyze(files)}
-            disabled={inProgress || !files || files.length === 0}
+            className="cs-btn cursor-pointer"
+            disabled={!directory}
+            onClick={() => setShowDirectory(old => !old)}
           >
-            Analyze
+            <ChevronDownIcon
+              className={twMerge(
+                "size-3 text-white",
+                showDirectory && "rotate-180",
+              )}
+            />
           </button>
         </div>
+        {showDirectory && <p className="text-xs">{directory}</p>}
 
-        <div
-          className={twMerge(
-            "flex gap-2 justify-start items-center",
-            !progress && "invisible",
-          )}
-        >
+        <div className="cs-checkbox">
+          <input id="checkbox" type="checkbox" />
+          <label className="cs-checkbox__label" htmlFor="checkbox">
+            Include ground time
+          </label>
+        </div>
+
+        <div className={twMerge("flex gap-2 justify-start items-center")}>
           <div className="cs-progress-bar">
             {progress && (
               <div
@@ -128,18 +161,25 @@ function App() {
             )}
           </div>
           <div className="flex gap-0 flex-col text-xs">
-            <p>
-              {(progress?.Successful ?? 0) + (progress?.Failed ?? 0)} /{" "}
-              {progress?.Total ?? 1} files
-            </p>
-            <p
-              className="cursor-pointer"
-              onClick={() =>
-                (document.querySelector(".cs-dialog") as any).showModal()
-              }
-            >
-              {progress?.Failed} failures
-            </p>
+            {progress ? (
+              <p>
+                {progress.Successful + progress?.Failed} / {progress?.Total}{" "}
+                files
+              </p>
+            ) : (
+              <p>0 files analyzed</p>
+            )}
+            {progress && (
+              <p
+                className="cursor-pointer"
+                onClick={() => {
+                  if (failures.length > 0)
+                    (document.querySelector(".cs-dialog") as any).showModal();
+                }}
+              >
+                {progress.Failed} failures
+              </p>
+            )}
 
             <dialog className="cs-dialog">
               <form method="dialog">
@@ -163,13 +203,23 @@ function App() {
           </div>
         </div>
 
-        <div className="inner flex flex-col text-xs h-[20rem] overflow-y-scroll">
+        <div className="inner flex flex-col text-xs h-[20rem] overflow-y-auto">
           {results.map((aircraft, index) => (
-            <p className={index < 9 ? "pl-2" : ""}>
+            <p className={twMerge("", index < 9 && "pl-2")}>
               {index + 1}: {aircraft.Name} {secondsDisplay(aircraft.Seconds)}
             </p>
           ))}
         </div>
+      </div>
+
+      <div className="pt-2 flex justify-end">
+        <button
+          className="cursor-pointer cs-btn"
+          onClick={() => onAnalyze(files)}
+          disabled={inProgress || !files || files.length === 0}
+        >
+          Analyze
+        </button>
       </div>
     </div>
   );

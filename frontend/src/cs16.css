@@ -8,4 +8,11 @@
     position:relative;
     font-family:Courier New,Courier,monospace;
     padding:5px
-  }
+}
+.cs-border {
+  border:1px solid;
+  border-color:#292c21 #8c9284 #8c9284 #292c21;
+}
+::selection {
+  background-color: #958831;
+}

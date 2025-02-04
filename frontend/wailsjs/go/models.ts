@@ -55,7 +55,7 @@ export namespace reader {
 	}
 	export class TimesResult {
 	    Aircrafts: Aircraft[];
-	    Fails: string[];
+	    Failures: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new TimesResult(source);
@@ -64,7 +64,7 @@ export namespace reader {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.Aircrafts = this.convertValues(source["Aircrafts"], Aircraft);
-	        this.Fails = source["Fails"];
+	        this.Failures = source["Failures"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
