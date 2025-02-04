@@ -1,0 +1,55 @@
+name: Build EXE
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  release:
+    types:
+      - created
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      
+      - name: Install go dependencies
+        run: go get
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+      
+      - name: Compile application
+        run: wails build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DCSFlightTracker.exe
+          path: build/bin/DCSFlightTracker.exe
+
+      - name: Upload to release
+        if: github.event_name == 'release' && github.event.action == 'created'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/bin/DCSFlightTracker.exe
