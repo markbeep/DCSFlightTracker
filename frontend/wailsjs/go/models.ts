@@ -23,7 +23,9 @@ export namespace reader {
 	
 	export class Aircraft {
 	    Name: string;
-	    Seconds: number;
+	    TotalSeconds: number;
+	    GroundSeconds: number;
+	    Flights: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new Aircraft(source);
@@ -32,7 +34,9 @@ export namespace reader {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.Name = source["Name"];
-	        this.Seconds = source["Seconds"];
+	        this.TotalSeconds = source["TotalSeconds"];
+	        this.GroundSeconds = source["GroundSeconds"];
+	        this.Flights = source["Flights"];
 	    }
 	}
 	export class Progress {

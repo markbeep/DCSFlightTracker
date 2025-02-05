@@ -1,10 +1,9 @@
-import { twMerge } from "tailwind-merge";
-import { Layout } from "../components/layout";
-import { detailedTime, secondsDisplay } from "../util/time";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
 import { ReadAnalysis } from "../../wailsjs/go/main/App";
 import { reader } from "../../wailsjs/go/models";
+import { Layout } from "../components/layout";
+import { detailedTime, secondsDisplay } from "../util/time";
 
 export default function StatsPage() {
   const { readerIndex } = useParams();
@@ -21,12 +20,14 @@ export default function StatsPage() {
     }
     ReadAnalysis(parseInt(readerIndex)).then(res => {
       const combinedSeconds = res.Aircrafts.reduce(
-        (old, ac) => old + ac.Seconds,
+        (old, ac) => old + ac.TotalSeconds,
         0,
       );
       const combined: reader.Aircraft = {
         Name: "Total",
-        Seconds: combinedSeconds,
+        TotalSeconds: combinedSeconds,
+        GroundSeconds: 0,
+        Flights: 0,
       };
       setResults(res);
       setAircrafts([combined, ...res.Aircrafts]);
@@ -52,7 +53,7 @@ export default function StatsPage() {
         >
           {aircrafts.map(ac => (
             <option key={ac.Name} value={ac.Name}>
-              {ac.Name} ({secondsDisplay(ac.Seconds)})
+              {ac.Name} ({secondsDisplay(ac.TotalSeconds)})
             </option>
           ))}
         </select>
@@ -64,23 +65,28 @@ export default function StatsPage() {
                 results?.Aircrafts.map(ac => (
                   <>
                     <p>{ac.Name}</p>
-                    <p>{detailedTime(ac.Seconds)}</p>
+                    <p>{detailedTime(ac.TotalSeconds)}</p>
                   </>
                 ))}
 
               {selectedAircraft.Name !== "Total" && (
                 <>
-                  <p>Total hours</p>
-                  <p>{detailedTime(selectedAircraft.Seconds)}</p>
+                  <p>Total flight time</p>
+                  <p>{detailedTime(selectedAircraft.TotalSeconds)}</p>
 
-                  <p>Flight hours</p>
-                  <p>Unk</p>
+                  <p>Moving</p>
+                  <p>
+                    {detailedTime(
+                      selectedAircraft.TotalSeconds -
+                        selectedAircraft.GroundSeconds,
+                    )}
+                  </p>
 
-                  <p>Ground hours</p>
-                  <p>Unk</p>
+                  <p>Stationary</p>
+                  <p>{detailedTime(selectedAircraft.GroundSeconds)}</p>
 
                   <p>Flights</p>
-                  <p>Unk</p>
+                  <p>{selectedAircraft.Flights}</p>
 
                   <p>Landed</p>
                   <p>Unk</p>

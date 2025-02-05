@@ -1,9 +1,8 @@
-import { twMerge } from "tailwind-merge";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { GetProgress } from "../../wailsjs/go/main/App";
 import { reader } from "../../wailsjs/go/models";
 import { Layout } from "../components/layout";
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
 
 export default function AnalyzingPage() {
   const [progress, setProgress] = useState<reader.Progress | null>();

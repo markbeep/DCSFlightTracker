@@ -11,19 +11,21 @@ type Reader interface {
 	// Reads a file and internally stores the time flown with each aircraft.
 	// This method has to be thread-safe.
 	ReadFile(filepath string) error
-	GetPlaneSeconds() map[string]float64
+	GetAircraftStats() []Aircraft
 }
 
 type Aircraft struct {
-	Name    string
-	Seconds float64
+	Name          string
+	TotalSeconds  float64
+	GroundSeconds float64
+	Flights       int
 }
 
 func (a Aircraft) String() string {
-	if a.Seconds < 60 {
-		return fmt.Sprintf("%s: %.2f secs", a.Name, a.Seconds)
+	if a.TotalSeconds < 60 {
+		return fmt.Sprintf("%s: %.2f secs", a.Name, a.TotalSeconds)
 	}
-	mins := a.Seconds / 60
+	mins := a.TotalSeconds / 60
 	if mins < 60 {
 		return fmt.Sprintf("%s: %.2f mins", a.Name, mins)
 	}
@@ -73,14 +75,9 @@ func ReadTimes(reader Reader, files []string) (TimesResult, error) {
 		}
 	}
 
-	flownSeconds := reader.GetPlaneSeconds()
+	aircrafts := reader.GetAircraftStats()
+	slices.SortFunc(aircrafts, func(a, b Aircraft) int { return int(b.TotalSeconds) - int(a.TotalSeconds) })
 
-	var aircrafts []Aircraft
-	for plane, seconds := range flownSeconds {
-		aircrafts = append(aircrafts, Aircraft{Name: plane, Seconds: seconds})
-	}
-
-	slices.SortFunc(aircrafts, func(a, b Aircraft) int { return int(b.Seconds) - int(a.Seconds) })
 	return TimesResult{Aircrafts: aircrafts, Failures: fails}, nil
 }
 

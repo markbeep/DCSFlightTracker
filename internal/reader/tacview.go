@@ -14,13 +14,19 @@ import (
 )
 
 type TacviewReader struct {
-	planeSeconds sync.Map
-	alreadyRead  sync.Map
+	totalSeconds    sync.Map
+	groundSeconds   sync.Map
+	numberOfFlights sync.Map
+
+	// Name of all files that have already been read to not count them again
+	alreadyRead sync.Map
 }
 
 func NewTacviewReader() TacviewReader {
 	return TacviewReader{
-		planeSeconds: sync.Map{},
+		totalSeconds:    sync.Map{},
+		groundSeconds:   sync.Map{},
+		numberOfFlights: sync.Map{},
 	}
 }
 
@@ -50,15 +56,21 @@ func (r *TacviewReader) readContents(file io.ReadCloser) error {
 		return err
 	}
 
-	reLineMatch, err := regexp.Compile(`([\d\w]+),T=\d+\.\d+\|\d+\.\d+\|.*Pilot=` + author)
+	reObjectId, err := regexp.Compile(`([\d\w]+),T=.*,Pilot=` + author)
 	if err != nil {
 		return fmt.Errorf("username (%s) fails regex: %w", author, err)
 	}
 
-	var currentPlaneId string
-	var currentPlaneName string
-	var currentPlaneSpawnedAt float64
+	var planeId string
+	var planeName string
+	var spawnedAt float64
 	var currentTimestamp float64
+	var stationarySince float64 = -1
+
+	// Location of the aircraft regex. Format along the lines
+	// of hexId,T=long|lat|alt
+	var reLocation *regexp.Regexp = nil
+
 	for scanner.Scan() {
 		line := scanner.Text()
 
@@ -69,30 +81,68 @@ func (r *TacviewReader) readContents(file io.ReadCloser) error {
 				return fmt.Errorf("failed to parse timestamp: %w", err)
 			}
 
-		} else if currentPlaneId == "" {
-			// We search for a new aircraft to spawn under the author's name
-			// TODO: does this work for detecting a pilot entering an already spawned aircraft?
-			matches := reLineMatch.FindStringSubmatch(line)
-			if len(matches) > 0 {
-				currentPlaneId = matches[1]
-				currentPlaneName = rePlaneName.FindStringSubmatch(line)[1]
-				currentPlaneSpawnedAt = currentTimestamp
+		} else if planeId != "" && strings.HasPrefix(line, "-"+planeId) {
+			// Aircrafts that get despawned are prefixed with a -
+			timeAlive := currentTimestamp - spawnedAt
+			actual, _ := r.totalSeconds.LoadOrStore(planeName, 0.0)
+			r.totalSeconds.Store(planeName, actual.(float64)+timeAlive)
+			planeId = ""
+		} else {
+			if planeId == "" {
+				// We search for a new aircraft to spawn under the author's name
+				// TODO: does this work for detecting a pilot entering an already spawned aircraft?
+				matches := reObjectId.FindStringSubmatch(line)
+				if len(matches) == 0 {
+					continue
+				}
+				planeId = matches[1]
+				planeName = rePlaneName.FindStringSubmatch(line)[1]
+				spawnedAt = currentTimestamp
+				reLocation = regexp.MustCompile(planeId + `,T=(-?\d*\.?\d*)\|(-?\d*\.?\d*)\|(-?\d*\.?\d*)`)
+				stationarySince = -1
+
+				actual, _ := r.numberOfFlights.LoadOrStore(planeName, 0)
+				r.numberOfFlights.Store(planeName, actual.(int)+1)
 			}
 
-		} else if strings.HasPrefix(line, "-"+currentPlaneId) {
-			// Aircrafts that get despawned are prefixed with a -
-			timeAlive := currentTimestamp - currentPlaneSpawnedAt
-			actual, _ := r.planeSeconds.LoadOrStore(currentPlaneName, 0.0)
-			r.planeSeconds.Store(currentPlaneName, actual.(float64)+timeAlive)
-			currentPlaneId = ""
+			if reLocation != nil {
+				// We search for the location of the aircraft
+				matches := reLocation.FindStringSubmatch(line)
+				if len(matches) == 0 {
+					continue
+				}
+
+				// If the locations are the same (empty), we start counting how long
+				if matches[1] == "" && matches[2] == "" && matches[3] == "" {
+					// Aircraft is stationary / hasn't moved since last frame
+					stationarySince = currentTimestamp
+				} else {
+					if stationarySince > -1 {
+						stationaryTime := currentTimestamp - stationarySince
+						actual, _ := r.groundSeconds.LoadOrStore(planeName, 0.0)
+						r.groundSeconds.Store(planeName, actual.(float64)+stationaryTime)
+					}
+					stationarySince = -1
+				}
+			}
+
 		}
 	}
 
 	// To account for any aircrafts that are not despawned at the end of the file
-	if currentPlaneId != "" {
-		timeAlive := currentTimestamp - currentPlaneSpawnedAt
-		actual, _ := r.planeSeconds.LoadOrStore(currentPlaneName, 0.0)
-		r.planeSeconds.Store(currentPlaneName, actual.(float64)+timeAlive)
+	if planeId != "" {
+		timeAlive := currentTimestamp - spawnedAt
+		actual, _ := r.totalSeconds.LoadOrStore(planeName, 0.0)
+		r.totalSeconds.Store(planeName, actual.(float64)+timeAlive)
+
+		if stationarySince > -1 {
+			stationaryTime := currentTimestamp - stationarySince
+			actual, _ := r.groundSeconds.LoadOrStore(planeName, 0.0)
+			r.groundSeconds.Store(planeName, actual.(float64)+stationaryTime)
+		}
+
+		actual, _ = r.numberOfFlights.LoadOrStore(planeName, 0)
+		r.numberOfFlights.Store(planeName, actual.(int)+1)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -130,13 +180,28 @@ func (r *TacviewReader) ReadFile(filepath string) error {
 	return nil
 }
 
-func (r *TacviewReader) GetPlaneSeconds() map[string]float64 {
-	planeSeconds := make(map[string]float64)
-	r.planeSeconds.Range(func(key, value interface{}) bool {
-		planeSeconds[key.(string)] = value.(float64)
+func (r *TacviewReader) GetAircraftStats() []Aircraft {
+	var aircrafts []Aircraft
+	r.totalSeconds.Range(func(key, value interface{}) bool {
+		groundSeconds, ok := r.groundSeconds.Load(key)
+		if !ok {
+			groundSeconds = 0.0
+		}
+		flights, ok := r.numberOfFlights.Load(key)
+		if !ok {
+			flights = 0
+		}
+
+		ac := Aircraft{
+			Name:          key.(string),
+			TotalSeconds:  value.(float64),
+			GroundSeconds: groundSeconds.(float64),
+			Flights:       flights.(int),
+		}
+		aircrafts = append(aircrafts, ac)
 		return true
 	})
-	return planeSeconds
+	return aircrafts
 }
 
 func (r *TacviewReader) ValidFiles(dir string) ([]string, error) {

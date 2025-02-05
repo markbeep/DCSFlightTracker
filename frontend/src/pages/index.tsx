@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { twMerge } from "tailwind-merge";
 import {
   OpenDirectoryBrowser,
   StartAnalysing,
@@ -7,7 +8,6 @@ import {
 import { Layout } from "../components/layout";
 import "../cs16.css";
 import { longestCommonPrefix } from "../util/prefix";
-import { twMerge } from "tailwind-merge";
 
 enum ReaderTypes {
   Tacview = 0,
