@@ -44,12 +44,12 @@ export default function AnalyzingPage() {
           )}
         </div>
         <div className="flex flex-col text-xs">
-          {progress ? (
+          {progress && progress.Total > 0 ? (
             <p>
               {progress.Successful + progress.Failed} / {progress.Total} files
             </p>
           ) : (
-            <p>0 / 0 files</p>
+            <p>loading...</p>
           )}
         </div>
       </div>

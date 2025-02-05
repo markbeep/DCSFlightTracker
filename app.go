@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/wailsapp/wails/v2/pkg/logger"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -60,6 +61,21 @@ func (a *App) OpenDirectoryBrowser(readerIndex int) SelectedFiles {
 		files[i] = filepath.Join(dir, file)
 	}
 
+	// Sort files by their size in descending order
+	// Allows for bigger files to be processed first
+	// and stall the analyzing step less
+	fileSizes := make(map[string]int64)
+	for _, file := range files {
+		info, err := os.Stat(file)
+		if err != nil {
+			continue
+		}
+		fileSizes[file] = info.Size()
+	}
+	slices.SortFunc(files, func(a, b string) int {
+		return int(fileSizes[b] - fileSizes[a])
+	})
+
 	return SelectedFiles{Files: files, ReaderIndex: readerIndex}
 }
 
@@ -73,7 +89,7 @@ func (a *App) StartAnalysing(readerIndex int, files []string) {
 func (a *App) ReadAnalysis(readerIndex int) reader.TimesResult {
 	result, exists := readerStats[readerIndex]
 	if !exists {
-		return reader.TimesResult{}
+		return reader.TimesResult{Aircrafts: []reader.Aircraft{}, Failures: []string{}}
 	}
 	return result
 }

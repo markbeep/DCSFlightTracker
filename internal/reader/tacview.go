@@ -1,6 +1,7 @@
 package reader
 
 import (
+	"DCSFlightTracker/internal/util"
 	"archive/zip"
 	"bufio"
 	"errors"
@@ -8,50 +9,74 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
 )
 
 type TacviewReader struct {
-	totalSeconds    sync.Map
-	groundSeconds   sync.Map
-	numberOfFlights sync.Map
-
+	totalSeconds    util.Dict[string, float64]
+	groundSeconds   util.Dict[string, float64]
+	numberOfFlights util.Dict[string, int]
+	missionTime     util.Dict[string, *util.Dict[string, float64]]
 	// Name of all files that have already been read to not count them again
-	alreadyRead sync.Map
+	alreadyRead util.Dict[string, bool]
+	mu          sync.Mutex
 }
 
 func NewTacviewReader() TacviewReader {
 	return TacviewReader{
-		totalSeconds:    sync.Map{},
-		groundSeconds:   sync.Map{},
-		numberOfFlights: sync.Map{},
+		totalSeconds:    util.Dict[string, float64]{},
+		groundSeconds:   util.Dict[string, float64]{},
+		numberOfFlights: util.Dict[string, int]{},
+		alreadyRead:     util.Dict[string, bool]{},
+		missionTime:     util.Dict[string, *util.Dict[string, float64]]{},
+		mu:              sync.Mutex{},
 	}
 }
 
 func (r *TacviewReader) ID() string {
-	return "Tacview"
+	return "Tacview_acmi"
 }
 
-func findAuthor(scanner *bufio.Scanner) (string, error) {
+func findAuthorMission(scanner *bufio.Scanner) (string, string, error) {
+	author := ""
+	mission := ""
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.Contains(line, "Author=") {
-			return strings.TrimSpace(strings.Split(line, "=")[1]), nil
+		// Remove BOM
+		if len(line) >= 3 && line[:3] == "\xef\xbb\xbf" {
+			line = line[3:]
+		}
+
+		if strings.HasPrefix(line, "File") {
+			continue
+		}
+		if !strings.HasPrefix(line, "0,") {
+			break
+		}
+		if strings.HasPrefix(line, "0,Author=") {
+			author = line[9:]
+		}
+		if strings.HasPrefix(line, "0,Title=") {
+			mission = line[8:]
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return "", err
+		return "", "", err
 	}
-	return "", errors.New("author not found")
+	if author == "" {
+		return "", "", errors.New("author not found")
+	}
+	return author, mission, nil
 }
 
 var rePlaneName = regexp.MustCompile(".*Name=(.+?),")
 
 func (r *TacviewReader) readContents(file io.ReadCloser) error {
 	scanner := bufio.NewScanner(file)
-	author, err := findAuthor(scanner)
+	author, mission, err := findAuthorMission(scanner)
 	if err != nil {
 		return err
 	}
@@ -60,6 +85,11 @@ func (r *TacviewReader) readContents(file io.ReadCloser) error {
 	if err != nil {
 		return fmt.Errorf("username (%s) fails regex: %w", author, err)
 	}
+
+	// Keep track thread-locally and then merge at the end
+	totalSeconds := util.Dict[string, float64]{}
+	groundSeconds := util.Dict[string, float64]{}
+	numberOfFlights := util.Dict[string, int]{}
 
 	var planeId string
 	var planeName string
@@ -78,14 +108,13 @@ func (r *TacviewReader) readContents(file io.ReadCloser) error {
 			// Tacview timestamps start with #
 			currentTimestamp, err = strconv.ParseFloat(line[1:], 64)
 			if err != nil {
-				return fmt.Errorf("failed to parse timestamp: %w", err)
+				continue
 			}
 
 		} else if planeId != "" && strings.HasPrefix(line, "-"+planeId) {
 			// Aircrafts that get despawned are prefixed with a -
 			timeAlive := currentTimestamp - spawnedAt
-			actual, _ := r.totalSeconds.LoadOrStore(planeName, 0.0)
-			r.totalSeconds.Store(planeName, actual.(float64)+timeAlive)
+			totalSeconds[planeName] = totalSeconds.LoadOrStore(planeName, 0.0) + timeAlive
 			planeId = ""
 		} else {
 			if planeId == "" {
@@ -98,11 +127,12 @@ func (r *TacviewReader) readContents(file io.ReadCloser) error {
 				planeId = matches[1]
 				planeName = rePlaneName.FindStringSubmatch(line)[1]
 				spawnedAt = currentTimestamp
+				// We only consider the long/lat/alt of an aircraft to consider it moving or stationary
 				reLocation = regexp.MustCompile(planeId + `,T=(-?\d*\.?\d*)\|(-?\d*\.?\d*)\|(-?\d*\.?\d*)`)
 				stationarySince = -1
 
-				actual, _ := r.numberOfFlights.LoadOrStore(planeName, 0)
-				r.numberOfFlights.Store(planeName, actual.(int)+1)
+				numberOfFlights[planeName] = numberOfFlights.LoadOrStore(planeName, 0) + 1
+
 			}
 
 			if reLocation != nil {
@@ -119,8 +149,7 @@ func (r *TacviewReader) readContents(file io.ReadCloser) error {
 				} else {
 					if stationarySince > -1 {
 						stationaryTime := currentTimestamp - stationarySince
-						actual, _ := r.groundSeconds.LoadOrStore(planeName, 0.0)
-						r.groundSeconds.Store(planeName, actual.(float64)+stationaryTime)
+						groundSeconds[planeName] = groundSeconds.LoadOrStore(planeName, 0.0) + stationaryTime
 					}
 					stationarySince = -1
 				}
@@ -132,22 +161,35 @@ func (r *TacviewReader) readContents(file io.ReadCloser) error {
 	// To account for any aircrafts that are not despawned at the end of the file
 	if planeId != "" {
 		timeAlive := currentTimestamp - spawnedAt
-		actual, _ := r.totalSeconds.LoadOrStore(planeName, 0.0)
-		r.totalSeconds.Store(planeName, actual.(float64)+timeAlive)
+		totalSeconds[planeName] = totalSeconds.LoadOrStore(planeName, 0.0) + timeAlive
 
 		if stationarySince > -1 {
 			stationaryTime := currentTimestamp - stationarySince
-			actual, _ := r.groundSeconds.LoadOrStore(planeName, 0.0)
-			r.groundSeconds.Store(planeName, actual.(float64)+stationaryTime)
+			groundSeconds[planeName] = groundSeconds.LoadOrStore(planeName, 0.0) + stationaryTime
 		}
 
-		actual, _ = r.numberOfFlights.LoadOrStore(planeName, 0)
-		r.numberOfFlights.Store(planeName, actual.(int)+1)
+		numberOfFlights[planeName] = numberOfFlights.LoadOrStore(planeName, 0) + 1
 	}
 
 	if err := scanner.Err(); err != nil {
 		return err
 	}
+
+	r.mu.Lock()
+	for key, value := range totalSeconds {
+		r.totalSeconds[key] = r.totalSeconds.LoadOrStore(key, 0.0) + value
+
+		// Store time spent in mission with the aircraft
+		missionTimes := r.missionTime.LoadOrStore(key, &util.Dict[string, float64]{})
+		(*missionTimes)[mission] = (*missionTimes).LoadOrStore(mission, 0.0) + value
+	}
+	for key, value := range groundSeconds {
+		r.groundSeconds[key] = r.groundSeconds.LoadOrStore(key, 0.0) + value
+	}
+	for key, value := range numberOfFlights {
+		r.numberOfFlights[key] = r.numberOfFlights.LoadOrStore(key, 0) + value
+	}
+	r.mu.Unlock()
 
 	return nil
 }
@@ -155,9 +197,11 @@ func (r *TacviewReader) readContents(file io.ReadCloser) error {
 // Reads a given Tacview file and extracts the time each plane was flown
 // by the author. Thread-safe.
 func (r *TacviewReader) ReadFile(filepath string) error {
-	if _, ok := r.alreadyRead.Load(filepath); ok {
+	r.mu.Lock()
+	if _, ok := r.alreadyRead[filepath]; ok {
 		return nil
 	}
+	r.mu.Unlock()
 
 	zipReader, err := zip.OpenReader(filepath)
 	if err != nil {
@@ -168,39 +212,53 @@ func (r *TacviewReader) ReadFile(filepath string) error {
 	// We assume Tacview zip files only have one file, but this would allow for multiple if required
 	for _, f := range zipReader.File {
 		rc, err := f.Open()
-		r.readContents(rc)
 		if err != nil {
+			return fmt.Errorf("failed '%s': %w", filepath, err)
+		}
+		if err = r.readContents(rc); err != nil {
 			return fmt.Errorf("failed '%s': %w", filepath, err)
 		}
 		rc.Close()
 	}
 
-	r.alreadyRead.Store(filepath, true)
+	r.mu.Lock()
+	r.alreadyRead[filepath] = true
+	r.mu.Unlock()
 
 	return nil
 }
 
 func (r *TacviewReader) GetAircraftStats() []Aircraft {
 	var aircrafts []Aircraft
-	r.totalSeconds.Range(func(key, value interface{}) bool {
-		groundSeconds, ok := r.groundSeconds.Load(key)
+
+	for key, value := range r.totalSeconds {
+		groundSeconds, ok := r.groundSeconds[key]
 		if !ok {
 			groundSeconds = 0.0
 		}
-		flights, ok := r.numberOfFlights.Load(key)
+		flights, ok := r.numberOfFlights[key]
 		if !ok {
 			flights = 0
 		}
+		var missions []Mission
+		for mission, time := range *r.missionTime[key] {
+			missions = append(missions, Mission{
+				Name:    mission,
+				Seconds: time,
+			})
+		}
+		slices.SortFunc(missions, func(a, b Mission) int { return int(b.Seconds) - int(a.Seconds) })
 
 		ac := Aircraft{
-			Name:          key.(string),
-			TotalSeconds:  value.(float64),
-			GroundSeconds: groundSeconds.(float64),
-			Flights:       flights.(int),
+			Name:          key,
+			TotalSeconds:  value,
+			GroundSeconds: groundSeconds,
+			Flights:       flights,
+			Missions:      missions,
 		}
 		aircrafts = append(aircrafts, ac)
-		return true
-	})
+
+	}
 	return aircrafts
 }
 

@@ -2,7 +2,7 @@
 
 This tool uses [Tacview](https://www.tacview.net/) files to total up all of your flight hours for each aircraft.
 
-![](/media/stats.png)
+![](/media/stats.png) ![](/media/oh58d.png)
 
 ## How to use
 

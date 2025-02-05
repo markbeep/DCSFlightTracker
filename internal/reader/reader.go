@@ -14,11 +14,17 @@ type Reader interface {
 	GetAircraftStats() []Aircraft
 }
 
+type Mission struct {
+	Name    string
+	Seconds float64
+}
+
 type Aircraft struct {
 	Name          string
 	TotalSeconds  float64
 	GroundSeconds float64
 	Flights       int
+	Missions      []Mission
 }
 
 func (a Aircraft) String() string {

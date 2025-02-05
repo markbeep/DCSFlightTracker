@@ -9,10 +9,9 @@ export default function StatsPage() {
   const { readerIndex } = useParams();
   const navigate = useNavigate();
   const [results, setResults] = useState<reader.TimesResult | null>(null);
-  const [aircrafts, setAircrafts] = useState<reader.Aircraft[]>([]);
   const [selectedAircraft, setSelectedAircraft] =
     useState<reader.Aircraft | null>(null);
-  const [showOverview, setShowOverview] = useState(false);
+  const [combinedSeconds, setCombinedSeconds] = useState(0);
 
   useEffect(() => {
     if (!readerIndex) {
@@ -23,15 +22,8 @@ export default function StatsPage() {
         (old, ac) => old + ac.TotalSeconds,
         0,
       );
-      const combined: reader.Aircraft = {
-        Name: "Total",
-        TotalSeconds: combinedSeconds,
-        GroundSeconds: 0,
-        Flights: 0,
-      };
       setResults(res);
-      setAircrafts([combined, ...res.Aircrafts]);
-      setSelectedAircraft(combined);
+      setCombinedSeconds(combinedSeconds);
     });
   }, [readerIndex]);
 
@@ -47,11 +39,14 @@ export default function StatsPage() {
           id="aircraft"
           onChange={e =>
             setSelectedAircraft(
-              aircrafts.find(ac => ac.Name === e.target.value) || null,
+              results?.Aircrafts.find(ac => ac.Name === e.target.value) || null,
             )
           }
         >
-          {aircrafts.map(ac => (
+          <option value="Total" onClick={() => setSelectedAircraft(null)}>
+            Overview ({secondsDisplay(combinedSeconds)})
+          </option>
+          {results?.Aircrafts.map(ac => (
             <option key={ac.Name} value={ac.Name}>
               {ac.Name} ({secondsDisplay(ac.TotalSeconds)})
             </option>
@@ -59,47 +54,55 @@ export default function StatsPage() {
         </select>
 
         <div className="inner text-xs h-full overflow-y-auto">
-          {selectedAircraft && (
-            <div className="grid grid-cols-2 gap-0.5">
-              {selectedAircraft.Name === "Total" &&
-                results?.Aircrafts.map(ac => (
+          <div className="grid grid-cols-2 gap-0.5 gap-x-2 whitespace-nowrap">
+            {selectedAircraft === null ? (
+              results?.Aircrafts.map(ac => (
+                <>
+                  <p>{ac.Name}</p>
+                  <p>{detailedTime(ac.TotalSeconds)}</p>
+                </>
+              ))
+            ) : (
+              <>
+                <p>Total flight time</p>
+                <p>{detailedTime(selectedAircraft.TotalSeconds)}</p>
+
+                <p className="pl-2">Moving</p>
+                <p>
+                  {detailedTime(
+                    selectedAircraft.TotalSeconds -
+                      selectedAircraft.GroundSeconds,
+                  )}
+                </p>
+
+                <p className="pl-2">Stationary</p>
+                <p>{detailedTime(selectedAircraft.GroundSeconds)}</p>
+
+                <p>Flights</p>
+                <p>{selectedAircraft.Flights}</p>
+
+                <p className="pl-2">Landed</p>
+                <p>Unk</p>
+
+                <p className="pl-2">Destroyed</p>
+                <p>Unk</p>
+
+                <p className="pl-2">Other</p>
+                <p>Unk</p>
+
+                <p className="mt-2">Most frequent missions</p>
+                <p />
+                {selectedAircraft.Missions.map(mission => (
                   <>
-                    <p>{ac.Name}</p>
-                    <p>{detailedTime(ac.TotalSeconds)}</p>
+                    <p className="truncate pl-2">
+                      {mission.Name || "<Unknown>"}
+                    </p>
+                    <p>{detailedTime(mission.Seconds)}</p>
                   </>
                 ))}
-
-              {selectedAircraft.Name !== "Total" && (
-                <>
-                  <p>Total flight time</p>
-                  <p>{detailedTime(selectedAircraft.TotalSeconds)}</p>
-
-                  <p>Moving</p>
-                  <p>
-                    {detailedTime(
-                      selectedAircraft.TotalSeconds -
-                        selectedAircraft.GroundSeconds,
-                    )}
-                  </p>
-
-                  <p>Stationary</p>
-                  <p>{detailedTime(selectedAircraft.GroundSeconds)}</p>
-
-                  <p>Flights</p>
-                  <p>{selectedAircraft.Flights}</p>
-
-                  <p>Landed</p>
-                  <p>Unk</p>
-
-                  <p>Destroyed</p>
-                  <p>Unk</p>
-
-                  <p>Other</p>
-                  <p>Unk</p>
-                </>
-              )}
-            </div>
-          )}
+              </>
+            )}
+          </div>
         </div>
       </div>
 

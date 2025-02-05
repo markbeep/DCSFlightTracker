@@ -1,4 +1,4 @@
-name: Build EXE
+name: Build application
 
 on:
   push:
@@ -55,6 +55,9 @@ jobs:
         working-directory: frontend
         run: npm install
       
+      - name: Test
+        run: go test ./...
+
       - name: Compile application
         run: wails build
 
